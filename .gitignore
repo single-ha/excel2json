@@ -1,0 +1,12 @@
+/.vs/
+/.vsconfig
+/Library/
+/Logs/
+/Temp/
+/obj
+/Build
+/Assembly-CSharp.csproj
+/Assembly-CSharp-Editor.csproj
+/Assembly-CSharp-firstpass.csproj
+/Excel2Json.sln
+/Assets/StreamingAssets/
