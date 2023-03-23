@@ -12,21 +12,22 @@ using Debug = UnityEngine.Debug;
 
 public class MainWindow : MonoBehaviour
 {
-    public Button Btn_SelectFolder;
-
+    public Button Btn_Clear;
+    public Button Btn_ShowLog;
     public Button Btn_SelectFiles;
+    public Button Btn_Create;
+
+    public Text Tex_InputRoot;
+    public Button Btn_SelectInPutRoot;
+    public Button Btn_OpenInput;
+
 
     public ScrollRect SelectFiles;
-
     public Text Tex_SelectFilesPath;
-
     public Button Btn_OutPutFolder;
     public Button Btn_OpenOutPut;
-    public Button Btn_Clear;
     public Text Tex_OutPutFolderPath;
 
-    public Button Btn_Create;
-    public Button Btn_ShowLog;
     public Transform messageRoot;
     public Text showMessage;
     public Button Btn_CloseMessage;
@@ -36,7 +37,7 @@ public class MainWindow : MonoBehaviour
 
     private IFileChoose fileChoose;
     StringBuilder sb_Select = new StringBuilder();
-    private string folderPath;
+    private string inputRoot;
     private string[] filesPath;
     private string outPutPath;
     private HashSet<string> allfiles;
@@ -51,11 +52,21 @@ public class MainWindow : MonoBehaviour
     void Start()
     {
         Instance = this;
-        if (Btn_SelectFolder != null)
+        if (Btn_SelectInPutRoot != null)
         {
-            Btn_SelectFolder.onClick.AddListener(OnClickSelectFolder);
+            Btn_SelectInPutRoot.onClick.AddListener(OnClickSelectFolder);
         }
 
+        if (Btn_OpenInput!=null)
+        {
+            Btn_OpenInput.onClick.AddListener(delegate()
+            {
+                if (!string.IsNullOrEmpty(inputRoot))
+                {
+                    fileChoose.OpenFolder(inputRoot);
+                }
+            });
+        }
         if (Btn_SelectFiles != null)
         {
             Btn_SelectFiles.onClick.AddListener(OnClickSelectFiles);
@@ -113,7 +124,7 @@ public class MainWindow : MonoBehaviour
 
     private void OnClear()
     {
-        folderPath = null;
+        inputRoot = null;
         filesPath = null;
         RefreshPahtsShow();
     }
@@ -124,7 +135,7 @@ public class MainWindow : MonoBehaviour
         fileChoose = new FileChoose_Dll();
         log_List = new List<string>();
         allfiles = new HashSet<string>();
-        folderPath = PlayerPrefs.GetString("folderPath", "");
+        inputRoot = PlayerPrefs.GetString("inputRoot", "");
         outPutPath = PlayerPrefs.GetString("outPutPath", "");
         Excel2Json.Init();
     }
@@ -132,10 +143,14 @@ public class MainWindow : MonoBehaviour
     private void OnClickShowLog()
     {
         StringBuilder sb = new StringBuilder();
-        for (int i = log_List.Count-1; i >= 0; i--)
+        for (int i = 0; i < log_List.Count; i++)
         {
             sb.AppendLine(log_List[i]);
         }
+        // for (int i = log_List.Count-1; i >= 0; i--)
+        // {
+        //     sb.AppendLine(log_List[i]);
+        // }
         Instance.ShowLogPanel(sb.ToString());
     }
 
@@ -145,7 +160,6 @@ public class MainWindow : MonoBehaviour
         {
             Log("未选择输出路径");
         }
-
         allfiles.Clear();
         CollectFiles();
         if (allfiles.Count <= 0)
@@ -162,6 +176,11 @@ public class MainWindow : MonoBehaviour
         count = 0;
         processValue = 0;
         sw.Restart();
+        if (filesPath==null||filesPath.Length<0)
+        {
+            //全量模式
+            ClearFolder(outPutPath);
+        }
         var arrs = allfiles.ToArray();
         StartCoroutine(ShowProcess());
         if (arrs.Length>0)
@@ -174,7 +193,17 @@ public class MainWindow : MonoBehaviour
                 {
                     continue;
                 }
-                StartCoroutine(Excel2Json.Excel2Json_File(fileInfo, outPutPath, delegate ()
+
+                string output = outPutPath;
+                if (fileInfo.DirectoryName!=null && fileInfo.DirectoryName!=inputRoot)
+                {
+                    output = fileInfo.DirectoryName.Replace(inputRoot, outPutPath);
+                }
+                else
+                {
+                    
+                }
+                StartCoroutine(Excel2Json.Excel2Json_File(fileInfo, output, delegate ()
                 {
                     count++;
                     processValue = count / (float)allfiles.Count;
@@ -199,19 +228,37 @@ public class MainWindow : MonoBehaviour
         // });
     }
 
-    private void CollectFiles()
+    private void ClearFolder(string path)
     {
-        if (!string.IsNullOrEmpty(folderPath))
+        if (!Directory.Exists(path))
         {
-            GetExcelFileInFolder();
+            return;
+        }
+        var files = Directory.GetFiles(path,"*.*",SearchOption.AllDirectories);
+        for (int i = 0; i < files.Length; i++)
+        {
+            File.Delete(files[i]);
         }
 
-        if (filesPath != null)
+        var dirs = Directory.GetDirectories(path,"*",SearchOption.AllDirectories);
+        for (int i = 0; i < dirs.Length; i++)
+        {
+            Directory.Delete(dirs[i]);
+        }
+    }
+    private void CollectFiles()
+    {
+        if (filesPath != null&&filesPath.Length>0)
         {
             for (int i = 0; i < filesPath.Length; i++)
             {
                 allfiles.Add(filesPath[i]);
             }
+            return;//当有单个表格选中的时候为增量转化否则转化根目录下的所有表格
+        }
+        if (!string.IsNullOrEmpty(inputRoot))
+        {
+            GetExcelFileInFolder();
         }
     }
 
@@ -237,19 +284,20 @@ public class MainWindow : MonoBehaviour
 
     private void OnClickSelectFolder()
     {
-        folderPath = fileChoose.OpenFolderDialog("选择文件夹");
+        inputRoot = fileChoose.OpenFolderDialog("选择文件夹");
         RefreshPahtsShow();
-        PlayerPrefs.SetString("folderPath",folderPath);
+        PlayerPrefs.SetString("inputRoot",inputRoot);
     }
 
     private void RefreshPahtsShow()
     {
-        sb_Select.Clear();
-        if (!string.IsNullOrEmpty(folderPath))
+        if (!string.IsNullOrEmpty(inputRoot))
         {
-            sb_Select.AppendLine($"<color=#495BEC>{folderPath}</color>");
+            Tex_InputRoot.text = inputRoot;
+            // sb_Select.AppendLine($"<color=#495BEC>{inputRoot}</color>");
         }
 
+        sb_Select.Clear();
         if (filesPath != null)
         {
             for (int i = 0; i < filesPath.Length; i++)
@@ -265,12 +313,12 @@ public class MainWindow : MonoBehaviour
 
     private void GetExcelFileInFolder()
     {
-        if (!Directory.Exists(folderPath))
+        if (!Directory.Exists(inputRoot))
         {
             return;
         }
 
-        DirectoryInfo di = new DirectoryInfo(folderPath);
+        DirectoryInfo di = new DirectoryInfo(inputRoot);
         var files = di.GetFiles("*.xls", SearchOption.AllDirectories);
         for (int i = 0; i < files.Length; i++)
         {
@@ -301,7 +349,7 @@ public class MainWindow : MonoBehaviour
     }
     private bool CheckDirectory(DirectoryInfo dir)
     {
-        if (dir.FullName==folderPath)
+        if (dir.FullName==inputRoot)
         {
             return true;
         }
