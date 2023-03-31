@@ -120,6 +120,12 @@ public class MainWindow : MonoBehaviour
         InitData();
         RefreshPahtsShow();
         RefreshOutputShow();
+        Application.logMessageReceived += UnityLog;
+    }
+
+    private void UnityLog(string condition, string stacktrace, LogType type)
+    {
+        log_List.Add(condition);
     }
 
     private void OnClear()
@@ -234,16 +240,16 @@ public class MainWindow : MonoBehaviour
         {
             return;
         }
-        var files = Directory.GetFiles(path,"*.*",SearchOption.AllDirectories);
+        var files = Directory.GetFiles(path);
         for (int i = 0; i < files.Length; i++)
         {
             File.Delete(files[i]);
         }
 
-        var dirs = Directory.GetDirectories(path,"*",SearchOption.AllDirectories);
+        var dirs = Directory.GetDirectories(path);
         for (int i = 0; i < dirs.Length; i++)
         {
-            Directory.Delete(dirs[i]);
+            Directory.Delete(dirs[i],true);
         }
     }
     private void CollectFiles()
